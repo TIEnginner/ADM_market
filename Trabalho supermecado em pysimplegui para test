@@ -1,0 +1,407 @@
+import PySimpleGUI as sg
+import json
+import os
+import pandas as pd
+
+# Definindo o tema
+sg.theme('DarkBlue')
+
+# Arquivo JSON e dados padrão
+json_file = 'dados_salvos_supermegado.json'
+usuario_file = 'dados_usuario.json'
+
+data = {
+    "1": [""] * 35,
+    "2": [""] * 35,
+    "3": [""] * 35,
+    "4": [""] * 35,
+    "5": [""] * 35,
+    "6": [""] * 35,
+    "7": [""] * 35,
+    "8": [""] * 35,
+    "9": [""] * 35,
+    "10": [""] * 35,
+    "11": [""] * 35,
+    "12": [""] * 35,
+}
+
+class AgendaApp:
+    def __init__(self):
+        self.filename = "produto.json"
+        self.tasks = self.load_tasks()
+        self.filenam = "categoria.json"
+        self.categories = self.load_categories()
+        self.setup_produto()
+
+    def load_categories(self):
+        if os.path.exists(self.filenam):
+            with open(self.filenam, 'r') as file:
+                return json.load(file)
+        return []
+
+    def setup_produto(self):
+        layout = [
+            [sg.Text("Codigo do produto", font=("Arial", 12)),sg.Input(key = 'codigo',enable_events=True)],
+            [sg.Text("Data de validade", font=("Arial", 12)),
+             sg.Input(key='-DATE-', size=(12, 1), font=("Arial", 12), disabled=True),
+             sg.CalendarButton("Selecionar Data", target='-DATE-', format="%d/%m/%Y", font=("Arial", 12))],
+            [sg.Text("Fornecedor", font=("Arial", 12)), sg.Input(key='fornecedor')],
+            [sg.Text("Categoria", font=("Arial", 12)),
+             sg.Combo(self.categories, key='-CATEGORIA-', font=("Arial", 12), size=(40, 1))],
+            [sg.Text("Produto", font=("Arial", 12)),
+             sg.Input(key='-TASK-', font=("Arial", 12), size=(40, 1))],
+            [sg.Text("Preço", font=("Arial", 12)),
+             sg.Input(key='-VALOR-', font=("Arial", 12), size=(40, 1), enable_events=True)],
+            [sg.Text("Quantidade", font=("Arial", 12)),
+             sg.Input(key='-QUANTIDADE-', font=("Arial", 12), size=(40, 1), enable_events=True)],
+            [sg.Button("Adicionar", font=("Arial", 12)),
+             sg.Button("Remover Produto", font=("Arial", 12)),
+             sg.Button("Alterar Produto", font=("Arial", 12)),
+             sg.Button("Adicionar Categoria", font=("Arial", 12))],
+            [sg.Listbox(values=self.tasks, key='-TASKLIST-', font=("Arial", 12), size=(60, 10), select_mode=sg.LISTBOX_SELECT_MODE_SINGLE)]
+        ]
+
+        self.window = sg.Window("Gerenciamento de Produtos", layout)
+
+    def load_tasks(self):
+        if os.path.exists(self.filename):
+            with open(self.filename, 'r') as file:
+                return json.load(file)
+        return []
+
+    def save_tasks(self):
+        with open(self.filename, 'w') as file:
+            json.dump(self.window['-TASKLIST-'].get_list_values(), file)
+
+    def add_task(self,codigo, date, fornecedor, categoria, task, valor, quantidade):
+        if date and fornecedor and categoria and task and valor and quantidade:
+            from datetime import datetime
+            date_format = "%d/%m/%Y"
+            date_validade = datetime.strptime(date, date_format)
+   
+            now = datetime.now()
+       
+
+            if date_validade < now:
+                    sg.popup("A data de validade não pode ser menor que a data atual.",title = 'Erro')
+                    return
+            time = now.strftime("%d/%m/%Y %H:%M:%S")
+
+            formatted_task = f"{codigo} - {date} - {fornecedor} - {categoria} - {task} - {valor} - {quantidade} - {time}"
+            current_tasks = self.window['-TASKLIST-'].get_list_values()
+            updated_tasks = current_tasks + [formatted_task]
+            self.window['-TASKLIST-'].update(updated_tasks)
+            self.save_tasks()
+            self.window['codigo'].update('')
+            self.window['-DATE-'].update('')
+            self.window['fornecedor'].update('')
+            self.window['-CATEGORIA-'].update('')
+            self.window['-TASK-'].update('')
+            self.window['-VALOR-'].update('')
+            self.window['-QUANTIDADE-'].update('')
+
+    def remove_task(self):
+        selected_task = self.window['-TASKLIST-'].get_indexes()
+        if selected_task:
+            current_tasks = self.window['-TASKLIST-'].get_list_values()
+            del current_tasks[selected_task[0]]
+            self.window['-TASKLIST-'].update(current_tasks)
+            self.save_tasks()
+
+    def alterar_task(self):
+        selected_task_index = self.window['-TASKLIST-'].get_indexes()
+        if selected_task_index:
+            selected_task = self.window['-TASKLIST-'].get_list_values()[selected_task_index[0]]
+            parts = selected_task.split(" - ")
+            if len(parts) == 8:
+                codigo ,date, fornecedor, categoria, task, valor, quantidade, _ = parts
+               
+                self.window['codigo'].update(codigo)
+                self.window['-DATE-'].update(date)
+                self.window['fornecedor'].update(fornecedor)
+                self.window['-CATEGORIA-'].update(categoria)
+                self.window['-TASK-'].update(task)
+                self.window['-VALOR-'].update(valor)
+                self.window['-QUANTIDADE-'].update(quantidade)
+
+                current_tasks = self.window['-TASKLIST-'].get_list_values()
+                del current_tasks[selected_task_index[0]]
+                self.window['-TASKLIST-'].update(current_tasks)
+                self.save_tasks()
+
+    def run(self):
+        while True:
+            event, values = self.window.read()
+
+            if event == sg.WIN_CLOSED:
+                break
+            elif event == "Adicionar":
+                self.add_task(values['codigo'],values['-DATE-'], values['fornecedor'], values['-CATEGORIA-'], values['-TASK-'], values['-VALOR-'], values['-QUANTIDADE-'])
+            elif event == "Remover Produto":
+                self.remove_task()
+            elif event == "Alterar Produto":
+                self.alterar_task()
+            elif event == "Adicionar Categoria":
+                self.window.hide() 
+                TelaCadastro().run() 
+                self.window.un_hide() 
+            elif event == 'codigo':
+                quantidade = values['codigo']
+                if not quantidade.isdigit():
+                    self.window['codigo'].update(quantidade[:-1])
+            elif event == '-VALOR-':
+                valor = values['-VALOR-']
+                if not valor.replace('.', '', 1).isdigit():
+                    self.window['-VALOR-'].update(valor[:-1])
+
+            elif event == '-QUANTIDADE-':
+                quantidade = values['-QUANTIDADE-']
+                if not quantidade.isdigit():
+                    self.window['-QUANTIDADE-'].update(quantidade[:-1])
+
+        self.window.close()
+
+
+class TelaCadastro:
+    def __init__(self):
+        self.filename = "categoria.json"
+        self.tasks = self.load_tasks()
+        self.setup_agenda()
+
+    def setup_agenda(self):
+        layout = [
+            [sg.Text("Categoria", font=("Arial", 12)), sg.Input(key='-TASK-', font=("Arial", 12), size=(40, 1))],
+            [sg.Button("Adicionar Categoria", font=("Arial", 12)), sg.Button("Remover Categoria", font=("Arial", 12))],
+            [sg.Listbox(values=self.tasks, key='-TASKLIST-', font=("Arial", 12), size=(60, 10), select_mode=sg.LISTBOX_SELECT_MODE_SINGLE)]
+        ]
+
+        self.window = sg.Window("Adicionar Categoria", layout)
+
+    def load_tasks(self):
+        if os.path.exists(self.filename):
+            with open(self.filename, 'r') as file:
+                return json.load(file)
+        return []
+
+    def save_tasks(self):
+        with open(self.filename, 'w') as file:
+            json.dump(self.window['-TASKLIST-'].get_list_values(), file)
+
+    def add_task(self, task):
+        if task:
+            current_tasks = self.window['-TASKLIST-'].get_list_values()
+            if task not in current_tasks:
+                updated_tasks = current_tasks + [task]
+                self.window['-TASKLIST-'].update(updated_tasks)
+                self.save_tasks()
+
+    def remove_task(self):
+        selected_task = self.window['-TASKLIST-'].get_indexes()
+        if selected_task:
+            current_tasks = self.window['-TASKLIST-'].get_list_values()
+            del current_tasks[selected_task[0]]
+            self.window['-TASKLIST-'].update(current_tasks)
+            self.save_tasks()
+
+    def run(self):
+        while True:
+            event, values = self.window.read()
+
+            if event == sg.WIN_CLOSED:
+                break
+            elif event == "Adicionar Categoria":
+                self.add_task(values['-TASK-'])
+                self.window['-TASK-'].update('')
+            elif event == "Remover Categoria":
+                self.remove_task()
+
+        self.window.close()
+
+
+def dados_pessoas():
+    if not os.path.exists(usuario_file):
+        return {}
+    with open(usuario_file, 'r') as valor_json:
+        return json.load(valor_json)
+
+def verificar_usuario(usu, senha):
+    dados = dados_pessoas()
+    if usu in dados:
+        if dados[usu].get(senha) in ['personal', 'usuario']:
+            return dados[usu][senha]
+    return None
+
+def tela_Login():
+    return [
+        [sg.Text('Usuario')],
+        [sg.Input(key='-nome-')],
+        [sg.Text('Senha')],
+        [sg.Input(key='-senha-', password_char='*')],
+        [sg.Button('OK'), sg.Button('Cancelar'), sg.Button('Cadastrar')]
+    ]
+
+def tela_Cadastro():
+    return [
+        [sg.Text('Usuario')],
+        [sg.Input(key='-nome-')],
+        [sg.Text('Senha')],
+        [sg.Input(key='-senha-', password_char='*')],
+        [sg.Text('Repetir Senha')],
+        [sg.Input(key='-senha_rep-', password_char='*')],
+        [sg.Radio("Usuario", "1", default=True, key='usuario'), sg.Radio("funcionarios", '1', key='personal')],
+        [sg.Button('Cadastrar'), sg.Button('Cancelar')]
+    ]
+
+def tela_Cadastro_2():
+    return [
+        [sg.Text('Senha')],
+        [sg.Input(key='-senha-', password_char='*')],
+        [sg.Button('Ok'), sg.Button('Cancelar')]
+    ]
+
+def loja():
+    return [
+        [sg.Text('Nome da academia')],
+        [sg.Input(key='nome')],
+        [sg.Button('Adicionar'), sg.Button('Cancelar')]
+    ]
+
+def tela_inicial():
+    return [
+        [sg.Button('?')],
+        [sg.Text('')],
+        [sg.Text('Pesquisa'), sg.Input(key='-pesquisa-')],
+        [sg.Button('loja', key='-loja-'), sg.Button('Estoque', key='-estoque-')],
+        [sg.Button('Planilha', key='-excel-')]
+    ]
+
+df = pd.DataFrame(data)
+
+def criar_layout_planilha():
+    layout = []
+    for i in range(len(df)):
+        row = []
+        for col in df.columns:
+            row.append(sg.InputText(default_text=df[col].iloc[i], key=(i, col), size=(20, 1)))
+        layout.append(row)
+    layout.append([sg.Button('Salvar'), sg.Button('Carregar'), sg.Button('Limpar'), sg.Button('Sair')])
+    return layout
+
+def exibir_planilha():
+    layout = criar_layout_planilha()
+    window = sg.Window('Planilha Interativa e Editável', layout)
+    while True:
+        event, values = window.read()
+        if event in (sg.WIN_CLOSED, 'Sair'):
+            break
+        # Implementar lógica de salvar, carregar e limpar se necessário
+    window.close()
+
+janela = sg.Window('Login', tela_Login())
+
+while True:
+    event, values = janela.read()
+    
+    if event == sg.WIN_CLOSED or event == 'Cancelar':
+        break
+    
+    if event == 'OK':
+        usu = values['-nome-']
+        senha = values['-senha-']
+        papel = verificar_usuario(usu, senha)
+        
+        if papel == 'personal':
+            janela.close()
+            janela = sg.Window('Tela Inicial', tela_inicial(), size=(480, 300))
+            while True:
+                eventos, valor = janela.read()
+                
+                if eventos == sg.WIN_CLOSED:
+                    break
+                
+                if eventos == '?':
+                    janela.close()
+                    janela = sg.Window('Adicionar nome a academia', loja())
+                    while True:
+                        evento, valor = janela.read()
+                        if evento == sg.WIN_CLOSED or evento == 'Cancelar':
+                            janela.close()
+                            janela = sg.Window('Tela Inicial', tela_inicial(), size=(480, 300))
+                            break
+                        if evento == 'Adicionar':
+                            if not valor['nome']:
+                                sg.popup('Por favor, preencha todos os campos.')
+                            else:
+                                with open('arquivos.json', 'w') as arquivo_json:
+                                    json.dump({'nome': valor['nome']}, arquivo_json, indent=4)
+                                sg.popup('Nome da academia registrado com sucesso.')
+                                janela.close()
+                                janela = sg.Window('Tela Inicial', tela_inicial(), size=(480, 300))
+                                break
+                elif eventos == '-estoque-':
+                    app = AgendaApp()
+                    app.run()
+                elif eventos == '-excel-':
+                    janela.hide()
+                    exibir_planilha()
+                    janela.un_hide()
+        
+        elif papel == 'usuario':
+            # Lógica para usuários comuns, se necessário
+            break
+    
+    elif event == 'Cadastrar':
+        janela.close()
+        janela = sg.Window('Cadastro', tela_Cadastro())
+        while True:
+            evento_cadastro, valores_cadastro = janela.read()
+            
+            if evento_cadastro == 'Cadastrar':
+                usu = valores_cadastro['-nome-']
+                senha = valores_cadastro['-senha-']
+                senha_rep = valores_cadastro['-senha_rep-']
+                if not usu or not senha or not senha_rep:
+                    sg.popup('Por favor, preencha todos os campos.')
+                else:
+                    if usu in dados_pessoas():
+                        sg.popup('Usuário já existe.')
+                    elif senha == senha_rep:
+                        usuario_tipo = 'usuario' if valores_cadastro['usuario'] else 'personal'
+                        if usuario_tipo == 'usuario':
+                            dados = dados_pessoas()
+                            dados[usu] = {senha: 'usuario'}
+                            with open(usuario_file, 'w') as arquivo_json:
+                                json.dump(dados, arquivo_json, indent=4)
+                            sg.popup('Usuário cadastrado com sucesso.')
+                            janela.close()
+                            janela = sg.Window('Login', tela_Login())
+                            break
+                        else:
+                            janela.close()
+                            janela = sg.Window('Senha dos Funcionários', tela_Cadastro_2())
+                            while True:
+                                evento, valor = janela.read()
+                                if evento == 'Ok':
+                                    if not valor['-senha-']:
+                                        sg.popup('Por favor, preencha todos os campos.')
+                                    else:
+                                        dados = dados_pessoas()
+                                        dados[usu] = {senha: 'personal'}
+                                        with open(usuario_file, 'w') as arquivo_json:
+                                            json.dump(dados, arquivo_json, indent=4)
+                                        sg.popup('Usuário cadastrado com sucesso.')
+                                        janela.close()
+                                        janela = sg.Window('Login', tela_Login())
+                                        break
+                                elif evento == sg.WIN_CLOSED or evento == 'Cancelar':
+                                    janela.close()
+                                    janela = sg.Window('Cadastro', tela_Cadastro())
+                                    break
+                    else:
+                        sg.popup('As senhas não coincidem.')
+            elif evento_cadastro == sg.WIN_CLOSED or evento_cadastro == 'Cancelar':
+                janela.close()
+                janela = sg.Window('Login', tela_Login())
+                break
+
+janela.close()
