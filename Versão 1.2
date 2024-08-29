@@ -1,0 +1,219 @@
+import tkinter as tk
+from tkinter import simpledialog, messagebox
+from tkinter import ttk
+import sqlite3
+
+def connect_db():
+    return sqlite3.connect('database.db')
+
+def setup_db():
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_type TEXT NOT NULL,
+            name TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            gender TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+def center_window(window, width, height):
+    screen_width = window.winfo_screenwidth()
+    screen_height = window.winfo_screenheight()
+    x = (screen_width - width) / 2
+    y = (screen_height - height) / 2
+    window.geometry(f'{width}x{height}+{int(x)}+{int(y)}')
+
+def login():
+    user_type_client = user_type_var.get()
+    name = name_login_entry.get().strip()
+    password = password_login_entry.get().strip()
+
+    if not name or not password:
+        messagebox.showerror("Erro", "Todos os campos devem ser preenchidos.")
+        return
+
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT * FROM users WHERE user_type=? AND name=? AND password=?
+    ''', (user_type_client, name, password))
+    user = cursor.fetchone()
+    conn.close()
+
+    if user:
+        global logged_in
+        logged_in = True
+        messagebox.showinfo("Sucesso", f"Bem-vindo, {user[2]}!")
+    else:
+        messagebox.showerror("Erro", "Usuário ou senha inválidos.")
+
+def register():
+    global register_window, name_register_entry, option_combobox, senha_client
+    
+    register_window = tk.Toplevel(root)
+    register_window.title("Registro")
+    register_window.geometry("400x300")
+    center_window(register_window, 400, 300)
+
+    tk.Label(register_window, text="Tela de cadastro de funcionários", font=('Arial', 14)).pack(pady=20)
+
+    tk.Label(register_window, text="Nome", font=('Arial', 10)).pack(pady=10)
+    name_register_entry = tk.Entry(register_window, font=('Arial', 10))
+    name_register_entry.pack(pady=5)
+
+    tk.Label(register_window, text="Gênero", font=('Arial', 10)).pack(pady=10)
+    selected_option = tk.StringVar()
+    genero_register_entry = ['Masculino', 'Feminino', 'Relâmpago Marquinhos']
+    option_combobox = ttk.Combobox(register_window, textvariable=selected_option, values=genero_register_entry)
+    option_combobox.set('Selecione o gênero')
+    option_combobox.pack(pady=10)
+    
+    tk.Label(register_window, text="Senha", font=('Arial', 10)).pack(pady=10)
+    senha_client = tk.Entry(register_window, font=('Arial', 10), show='*')
+    senha_client.pack(pady=5)
+
+    user_type_var.set("funcionario")
+
+    tk.Button(register_window, text="Registrar", command=save_registration_usuario, font=('Arial', 12)).pack(pady=20)
+
+def save_registration_usuario():
+    name = name_register_entry.get().strip()
+    genero = option_combobox.get()
+    password = senha_client.get().strip()
+
+    if not name or not genero or not password:
+        messagebox.showerror("Erro", "Todos os campos devem ser preenchidos.")
+        return
+
+    conn = connect_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            INSERT INTO users (user_type, name, password, gender)
+            VALUES (?, ?, ?, ?)
+        ''', (user_type_var.get(), name, password, genero))
+        conn.commit()
+        messagebox.showinfo("Sucesso", "Cadastro realizado com sucesso")
+    except sqlite3.IntegrityError:
+        messagebox.showerror("Erro", "Usuário já cadastrado")
+    finally:
+        conn.close()
+        register_window.destroy()
+
+def storage_view():
+    if not logged_in:
+        messagebox.showerror("Erro", "Você precisa estar logado para acessar o estoque.")
+        return
+    
+    view_window = tk.Toplevel(root)
+    view_window.title("Visualizar Estoque")
+    
+    for widget in view_window.winfo_children():
+        widget.destroy()
+
+    tk.Label(view_window, text="Produtos em Estoque", font=('Arial', 14)).pack(pady=10)
+
+    for product in produtos:
+        product_info = f"{product['codigo']}: {product['nome']} - {product['categoria']} - R${product['preço']:.2f} - {product['quantidade']} em estoque"
+        tk.Label(view_window, text=product_info, font=('Arial', 10)).pack(pady=5)
+
+    tk.Button(view_window, text="Adicionar Produto", command=add_product).pack(pady=10)
+    tk.Button(view_window, text="Editar Produto", command=edit_product).pack(pady=10)
+    tk.Button(view_window, text="Remover Produto", command=remove_product).pack(pady=10)
+
+def add_product():
+    code = simpledialog.askstring("Adicionar Produto", "Código:")
+    name = simpledialog.askstring("Adicionar Produto", "Nome:")
+    category = simpledialog.askstring("Adicionar Produto", "Categoria:")
+    price = simpledialog.askfloat("Adicionar Produto", "Preço:")
+    quantity = simpledialog.askinteger("Adicionar Produto", "Quantidade:")
+    
+    if all([code, name, category, price is not None, quantity is not None]):
+        produtos.append({
+            "codigo": code,
+            "nome": name,
+            "categoria": category,
+            "preço": price,
+            "quantidade": quantity
+        })
+        messagebox.showinfo("Sucesso", "Produto adicionado com sucesso!")
+    else:
+        messagebox.showwarning("Aviso", "Todos os campos devem ser preenchidos.")
+
+def edit_product():
+    code = simpledialog.askstring("Editar Produto", "Código do produto a ser editado:")
+    for product in produtos:
+        if product['codigo'] == code:
+            new_name = simpledialog.askstring("Editar Produto", "Novo Nome:", initialvalue=product['nome'])
+            new_category = simpledialog.askstring("Editar Produto", "Nova Categoria:", initialvalue=product['categoria'])
+            new_price = simpledialog.askfloat("Editar Produto", "Novo Preço:", initialvalue=product['preço'])
+            new_quantity = simpledialog.askinteger("Editar Produto", "Nova Quantidade:", initialvalue=product['quantidade'])
+            
+            if all([new_name, new_category, new_price is not None, new_quantity is not None]):
+                product['nome'] = new_name
+                product['categoria'] = new_category
+                product['preço'] = new_price
+                product['quantidade'] = new_quantity
+                messagebox.showinfo("Sucesso", "Produto editado com sucesso!")
+            else:
+                messagebox.showwarning("Aviso", "Todos os campos devem ser preenchidos.")
+            return
+    messagebox.showwarning("Aviso", "Produto não encontrado.")
+
+def remove_product():
+    code = simpledialog.askstring("Remover Produto", "Código do produto a ser removido:")
+    global produtos
+    produtos = [product for product in produtos if product['codigo'] != code]
+    messagebox.showinfo("Sucesso", "Produto removido com sucesso!")
+
+def main_little_car():
+    global root, user_type_var, produtos, logged_in
+    
+    setup_db()
+    
+    produtos = [
+        {"codigo": "P001", "nome": "Arroz 5kg", "categoria": "Alimentos", "preço": 25.90, "quantidade": 50},
+        {"codigo": "P002", "nome": "Feijão 1kg", "categoria": "Alimentos", "preço": 7.50, "quantidade": 40},
+        {"codigo": "P003", "nome": "Açúcar 1kg", "categoria": "Alimentos", "preço": 4.20, "quantidade": 60},
+        {"codigo": "P004", "nome": "Óleo de Soja 900ml", "categoria": "Alimentos", "preço": 6.80, "quantidade": 35},
+        {"codigo": "P005", "nome": "Macarrão 500g", "categoria": "Alimentos", "preço": 3.50, "quantidade": 45},
+        {"codigo": "P006", "nome": "Sabão em Pó 1kg", "categoria": "Limpeza", "preço": 9.50, "quantidade": 20},
+        {"codigo": "P007", "nome": "Amaciante 2L", "categoria": "Limpeza", "preço": 10.90, "quantidade": 15},
+        {"codigo": "P008", "nome": "Papel Higiênico 12 rolos", "categoria": "Higiene", "preço": 15.00, "quantidade": 30},
+        {"codigo": "P009", "nome": "Shampoo 400ml", "categoria": "Higiene", "preço": 9.00, "quantidade": 20},
+        {"codigo": "P010", "nome": "Frango Inteiro Congelado 1kg", "categoria": "Carnes", "preço": 10.50, "quantidade": 25}
+    ]
+    
+    logged_in = False
+    
+    root = tk.Tk()
+    root.title("Carrinho de Compras")
+    root.geometry("1080x800")
+
+    tk.Label(root, text="Menu de Compras", font=('Arial', 14)).pack(pady=20)
+
+    tk.Label(root, text="Nome", font=('Arial', 10)).pack(pady=10)
+    global name_login_entry
+    name_login_entry = tk.Entry(root, font=('Arial', 10))
+    name_login_entry.pack(pady=5)
+
+    tk.Label(root, text="Senha", font=('Arial', 10)).pack(pady=10)
+    global password_login_entry
+    password_login_entry = tk.Entry(root, font=('Arial', 10), show='*')
+    password_login_entry.pack(pady=5)
+
+    tk.Button(root, text="Login", command=login, font=('Arial', 10)).pack(pady=10)
+    tk.Button(root, text="Cadastrar Funcionários", command=register, font=('Arial', 10)).pack(pady=10)
+    tk.Button(root, text="Ver Estoque", command=storage_view, font=('Arial', 10)).pack(pady=10)
+
+    user_type_var = tk.StringVar()
+    
+    root.mainloop()
+
+if __name__ == "__main__":
+    main_little_car()
