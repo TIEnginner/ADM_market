@@ -35,6 +35,7 @@ class AgendaApp:
         frame = ttk.Frame(self.root, padding="10")
         frame.grid(row=0, column=0, sticky="nsew")
         
+        self.codigo_entry = ttk.Entry(frame, width=12)
         self.date_entry = ttk.Entry(frame, width=12)
         self.date_entry.bind("<KeyRelease>", self.on_date_entry_keyrelease)
         
@@ -50,33 +51,37 @@ class AgendaApp:
         self.alterar_btn = ttk.Button(frame, text="Alterar Produto", command=self.alterar_task)
         self.add_categoria_btn = ttk.Button(frame, text="Adicionar Categoria", command=self.open_categoria_window)
 
-        ttk.Label(frame, text="Data de validade").grid(row=0, column=0, sticky="w")
-        self.date_entry.grid(row=0, column=1, padx=5, pady=5)
+        ttk.Label(frame, text="Código").grid(row=0, column=0, sticky="w")
+        self.codigo_entry.grid(row=0, column=1, padx=5, pady=5)
         
-        ttk.Label(frame, text="Fornecedor").grid(row=1, column=0, sticky="w")
-        self.fornecedor_entry.grid(row=1, column=1, columnspan=2, padx=5, pady=5)
+        ttk.Label(frame, text="Data de validade").grid(row=1, column=0, sticky="w")
+        self.date_entry.grid(row=1, column=1, padx=5, pady=5)
         
-        ttk.Label(frame, text="Categoria").grid(row=2, column=0, sticky="w")
-        self.categoria_combo.grid(row=2, column=1, columnspan=2, padx=5, pady=5)
+        ttk.Label(frame, text="Fornecedor").grid(row=2, column=0, sticky="w")
+        self.fornecedor_entry.grid(row=2, column=1, columnspan=2, padx=5, pady=5)
         
-        ttk.Label(frame, text="Produto").grid(row=3, column=0, sticky="w")
-        self.task_entry.grid(row=3, column=1, columnspan=2, padx=5, pady=5)
+        ttk.Label(frame, text="Categoria").grid(row=3, column=0, sticky="w")
+        self.categoria_combo.grid(row=3, column=1, columnspan=2, padx=5, pady=5)
         
-        ttk.Label(frame, text="Preço").grid(row=4, column=0, sticky="w")
-        self.valor_entry.grid(row=4, column=1, columnspan=2, padx=5, pady=5)
+        ttk.Label(frame, text="Produto").grid(row=4, column=0, sticky="w")
+        self.task_entry.grid(row=4, column=1, columnspan=2, padx=5, pady=5)
         
-        ttk.Label(frame, text="Quantidade").grid(row=5, column=0, sticky="w")
-        self.quantidade_entry.grid(row=5, column=1, columnspan=2, padx=5, pady=5)
+        ttk.Label(frame, text="Preço").grid(row=5, column=0, sticky="w")
+        self.valor_entry.grid(row=5, column=1, columnspan=2, padx=5, pady=5)
         
-        self.add_btn.grid(row=6, column=0, padx=5, pady=5)
-        self.remove_btn.grid(row=6, column=1, padx=5, pady=5)
-        self.alterar_btn.grid(row=6, column=2, padx=5, pady=5)
-        self.add_categoria_btn.grid(row=7, column=0, columnspan=3, pady=5)
+        ttk.Label(frame, text="Quantidade").grid(row=6, column=0, sticky="w")
+        self.quantidade_entry.grid(row=6, column=1, columnspan=2, padx=5, pady=5)
         
-        self.task_listbox.grid(row=8, column=0, columnspan=3, padx=5, pady=5)
+        self.add_btn.grid(row=7, column=0, padx=5, pady=5)
+        self.remove_btn.grid(row=7, column=1, padx=5, pady=5)
+        self.alterar_btn.grid(row=7, column=2, padx=5, pady=5)
+        self.add_categoria_btn.grid(row=8, column=0, columnspan=3, pady=5)
+        
+        self.task_listbox.grid(row=9, column=0, columnspan=3, padx=5, pady=5)
         self.update_task_listbox()
 
     def add_task(self):
+        codigo = self.codigo_entry.get()
         date = self.date_entry.get()
         fornecedor = self.fornecedor_entry.get()
         categoria = self.categoria_combo.get()
@@ -84,11 +89,9 @@ class AgendaApp:
         valor = self.valor_entry.get()
         quantidade = self.quantidade_entry.get()
         
-        if date and fornecedor and categoria and task and valor and quantidade:
-            now = datetime.now()
-            time = now.strftime("%d/%m/%Y %H:%M:%S")
+        if codigo and date and fornecedor and categoria and task and valor and quantidade:
             formatted_task = {
-                "codigo": f"prod_{len(self.tasks) + 1}",
+                "codigo": codigo,
                 "nome": task,
                 "preco": float(valor),
                 "quantidade": int(quantidade)
@@ -110,11 +113,9 @@ class AgendaApp:
     def alterar_task(self):
         selected_task_index = self.task_listbox.curselection()
         if selected_task_index:
-            # Índice selecionado da lista de produtos
             index = selected_task_index[0]
             selected_task = self.task_listbox.get(index)
 
-            # Separar partes do produto selecionado
             parts = selected_task.split(" - ")
             if len(parts) == 4:
                 codigo = parts[0]
@@ -122,14 +123,16 @@ class AgendaApp:
                 preco = parts[2].replace('R$', '').strip()
                 quantidade = parts[3].replace('Qtd: ', '').strip()
 
-                # Preencher campos com detalhes do produto selecionado
+                self.codigo_entry.delete(0, tk.END)
+                self.codigo_entry.insert(0, codigo)
+
                 self.date_entry.delete(0, tk.END)
-                self.date_entry.insert(0, "01/01/2024")  # Use a data fixa por enquanto
+                self.date_entry.insert(0, "01/01/2024")
 
                 self.fornecedor_entry.delete(0, tk.END)
-                self.fornecedor_entry.insert(0, "Fornecedor Fixo")  # Use o fornecedor fixo por enquanto
+                self.fornecedor_entry.insert(0, "Fornecedor Fixo")
 
-                self.categoria_combo.set("Categoria Fixa")  # Use a categoria fixa por enquanto
+                self.categoria_combo.set("Categoria Fixa")
 
                 self.task_entry.delete(0, tk.END)
                 self.task_entry.insert(0, nome)
@@ -140,21 +143,12 @@ class AgendaApp:
                 self.quantidade_entry.delete(0, tk.END)
                 self.quantidade_entry.insert(0, quantidade)
 
-                # Atualizar o produto na lista `self.tasks`
-                self.tasks[index] = {
-                    "codigo": codigo,
-                    "nome": nome,
-                    "preco": float(preco),
-                    "quantidade": int(quantidade)
-                }
-
-                # Salvar os dados atualizados
+                del self.tasks[index]
                 self.save_data()
-
-                # Atualizar a lista na interface gráfica
                 self.update_task_listbox()
 
     def clear_entries(self):
+        self.codigo_entry.delete(0, tk.END)
         self.date_entry.delete(0, tk.END)
         self.fornecedor_entry.delete(0, tk.END)
         self.categoria_combo.set('')
@@ -166,7 +160,11 @@ class AgendaApp:
         self.task_listbox.delete(0, tk.END)
         for task in self.tasks:
             task_str = f"{task['codigo']} - {task['nome']} - R${task['preco']} - Qtd: {task['quantidade']}"
-            self.task_listbox.insert(tk.END, task_str)
+            if task['quantidade'] < 10:
+                self.task_listbox.insert(tk.END, task_str)
+                self.task_listbox.itemconfig(tk.END, {'fg': 'red'})
+            else:
+                self.task_listbox.insert(tk.END, task_str)
 
     def open_categoria_window(self):
         self.categoria_window = tk.Toplevel(self.root)
@@ -202,41 +200,34 @@ class AgendaApp:
             return f"{date_str[:2]}/{date_str[2:]}"
         elif len(date_str) <= 6:
             return f"{date_str[:2]}/{date_str[2:4]}/{date_str[4:]}"
-        else:
-            return f"{date_str[:2]}/{date_str[2:4]}/{date_str[4:8]}"
+        return f"{date_str[:2]}/{date_str[2:4]}/{date_str[4:8]}"
 
 class CategoriaApp:
-    def __init__(self, root, parent_app):
+    def __init__(self, root, main_app):
         self.root = root
-        self.parent_app = parent_app
-        self.filename = "produto.json"
+        self.main_app = main_app
+        
         self.setup_categoria()
 
     def setup_categoria(self):
         frame = ttk.Frame(self.root, padding="10")
         frame.grid(row=0, column=0, sticky="nsew")
         
-        self.back_btn = ttk.Button(frame, text="Voltar", command=self.close_window)
-        self.categoria_entry = ttk.Entry(frame, width=40)
-        self.add_categoria_btn = ttk.Button(frame, text="Adicionar Categoria", command=self.add_categoria)
-
-        ttk.Label(frame, text="Nova Categoria").grid(row=0, column=0, padx=5, pady=5)
+        self.categoria_entry = ttk.Entry(frame)
+        self.add_categoria_btn = ttk.Button(frame, text="Adicionar", command=self.add_categoria)
+        self.cancelar_btn = ttk.Button(frame, text="Cancelar", command=self.root.destroy)
+        
+        ttk.Label(frame, text="Nova Categoria").grid(row=0, column=0, sticky="w")
         self.categoria_entry.grid(row=0, column=1, padx=5, pady=5)
-        self.add_categoria_btn.grid(row=1, column=0, columnspan=2, pady=5)
-        self.back_btn.grid(row=2, column=0, columnspan=2, pady=5)
+        self.add_categoria_btn.grid(row=1, column=0, padx=5, pady=5)
+        self.cancelar_btn.grid(row=1, column=1, padx=5, pady=5)
 
     def add_categoria(self):
         categoria = self.categoria_entry.get()
         if categoria:
-            if categoria not in self.parent_app.categories:
-                self.parent_app.categories.append(categoria)
-                self.parent_app.categoria_combo['values'] = self.parent_app.categories
-                self.parent_app.save_data()
-                self.categoria_entry.delete(0, tk.END)
-                self.categoria_entry.focus()
-
-    def close_window(self):
-        self.root.destroy()
+            self.main_app.categories.append(categoria)
+            self.main_app.save_data()
+            self.root.destroy()
 
 if __name__ == "__main__":
     root = tk.Tk()
