@@ -15,11 +15,22 @@ class AgendaApp:
         self.setup_produto()
 
     def load_data(self):
-        if os.path.exists(self.filename):
-            with open(self.filename, 'r') as file:
-                data = json.load(file)
-                return data.get('produtos', []), data.get('categorias', [])
-        return [], []
+        if not os.path.exists(self.filename):
+            with open(self.filename, 'w') as file:
+                json.dump({"produtos": [], "categorias": []}, file, indent=4)
+            return [], []
+        
+        if os.path.getsize(self.filename) > 0:
+            try:
+                with open(self.filename, 'r') as file:
+                    data = json.load(file)
+                    return data.get('produtos', []), data.get('categorias', [])
+            except json.JSONDecodeError:
+                print("Erro ao decodificar o arquivo JSON. O arquivo pode estar corrompido.")
+                return [], []
+        else:
+            print("O arquivo está vazio.")
+            return [], []
 
     def save_data(self):
         data = {
@@ -29,13 +40,21 @@ class AgendaApp:
         with open(self.filename, 'w') as file:
             json.dump(data, file, indent=4)
 
+    def gerar_codigo_produto(self):
+        if not self.tasks:
+            return "P001"
+        else:
+            ultimo_codigo = self.tasks[-1]['codigo']
+            numero = int(ultimo_codigo[1:]) + 1
+            novo_codigo = f"P{numero:03d}"
+            return novo_codigo
+
     def setup_produto(self):
         style = ttk.Style()
         
         frame = ttk.Frame(self.root, padding="10")
         frame.grid(row=0, column=0, sticky="nsew")
         
-        self.codigo_entry = ttk.Entry(frame, width=12)
         self.date_entry = ttk.Entry(frame, width=12)
         self.date_entry.bind("<KeyRelease>", self.on_date_entry_keyrelease)
         
@@ -51,37 +70,34 @@ class AgendaApp:
         self.alterar_btn = ttk.Button(frame, text="Alterar Produto", command=self.alterar_task)
         self.add_categoria_btn = ttk.Button(frame, text="Adicionar Categoria", command=self.open_categoria_window)
 
-        ttk.Label(frame, text="Código").grid(row=0, column=0, sticky="w")
-        self.codigo_entry.grid(row=0, column=1, padx=5, pady=5)
+        ttk.Label(frame, text="Data de validade").grid(row=0, column=0, sticky="w")
+        self.date_entry.grid(row=0, column=1, padx=5, pady=5)
         
-        ttk.Label(frame, text="Data de validade").grid(row=1, column=0, sticky="w")
-        self.date_entry.grid(row=1, column=1, padx=5, pady=5)
+        ttk.Label(frame, text="Fornecedor").grid(row=1, column=0, sticky="w")
+        self.fornecedor_entry.grid(row=1, column=1, columnspan=2, padx=5, pady=5)
         
-        ttk.Label(frame, text="Fornecedor").grid(row=2, column=0, sticky="w")
-        self.fornecedor_entry.grid(row=2, column=1, columnspan=2, padx=5, pady=5)
+        ttk.Label(frame, text="Categoria").grid(row=2, column=0, sticky="w")
+        self.categoria_combo.grid(row=2, column=1, columnspan=2, padx=5, pady=5)
         
-        ttk.Label(frame, text="Categoria").grid(row=3, column=0, sticky="w")
-        self.categoria_combo.grid(row=3, column=1, columnspan=2, padx=5, pady=5)
+        ttk.Label(frame, text="Produto").grid(row=3, column=0, sticky="w")
+        self.task_entry.grid(row=3, column=1, columnspan=2, padx=5, pady=5)
         
-        ttk.Label(frame, text="Produto").grid(row=4, column=0, sticky="w")
-        self.task_entry.grid(row=4, column=1, columnspan=2, padx=5, pady=5)
+        ttk.Label(frame, text="Preço").grid(row=4, column=0, sticky="w")
+        self.valor_entry.grid(row=4, column=1, columnspan=2, padx=5, pady=5)
         
-        ttk.Label(frame, text="Preço").grid(row=5, column=0, sticky="w")
-        self.valor_entry.grid(row=5, column=1, columnspan=2, padx=5, pady=5)
+        ttk.Label(frame, text="Quantidade").grid(row=5, column=0, sticky="w")
+        self.quantidade_entry.grid(row=5, column=1, columnspan=2, padx=5, pady=5)
         
-        ttk.Label(frame, text="Quantidade").grid(row=6, column=0, sticky="w")
-        self.quantidade_entry.grid(row=6, column=1, columnspan=2, padx=5, pady=5)
+        self.add_btn.grid(row=6, column=0, padx=5, pady=5)
+        self.remove_btn.grid(row=6, column=1, padx=5, pady=5)
+        self.alterar_btn.grid(row=6, column=2, padx=5, pady=5)
+        self.add_categoria_btn.grid(row=7, column=0, columnspan=3, pady=5)
         
-        self.add_btn.grid(row=7, column=0, padx=5, pady=5)
-        self.remove_btn.grid(row=7, column=1, padx=5, pady=5)
-        self.alterar_btn.grid(row=7, column=2, padx=5, pady=5)
-        self.add_categoria_btn.grid(row=8, column=0, columnspan=3, pady=5)
-        
-        self.task_listbox.grid(row=9, column=0, columnspan=3, padx=5, pady=5)
+        self.task_listbox.grid(row=8, column=0, columnspan=3, padx=5, pady=5)
         self.update_task_listbox()
 
     def add_task(self):
-        codigo = self.codigo_entry.get()
+        codigo = self.gerar_codigo_produto()  # Gera o código automaticamente
         date = self.date_entry.get()
         fornecedor = self.fornecedor_entry.get()
         categoria = self.categoria_combo.get()
@@ -89,7 +105,7 @@ class AgendaApp:
         valor = self.valor_entry.get()
         quantidade = self.quantidade_entry.get()
         
-        if codigo and date and fornecedor and categoria and task and valor and quantidade:
+        if date and fornecedor and categoria and task and valor and quantidade:
             formatted_task = {
                 "codigo": codigo,
                 "nome": task,
@@ -123,9 +139,6 @@ class AgendaApp:
                 preco = parts[2].replace('R$', '').strip()
                 quantidade = parts[3].replace('Qtd: ', '').strip()
 
-                self.codigo_entry.delete(0, tk.END)
-                self.codigo_entry.insert(0, codigo)
-
                 self.date_entry.delete(0, tk.END)
                 self.date_entry.insert(0, "01/01/2024")
 
@@ -148,7 +161,6 @@ class AgendaApp:
                 self.update_task_listbox()
 
     def clear_entries(self):
-        self.codigo_entry.delete(0, tk.END)
         self.date_entry.delete(0, tk.END)
         self.fornecedor_entry.delete(0, tk.END)
         self.categoria_combo.set('')
