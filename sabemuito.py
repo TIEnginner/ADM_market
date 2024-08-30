@@ -3,6 +3,7 @@ import os
 import tkinter as tk
 from tkinter import ttk
 from datetime import datetime
+from tkinter import messagebox
 
 class AgendaApp:
     def __init__(self, root):
@@ -39,6 +40,14 @@ class AgendaApp:
         }
         with open(self.filename, 'w') as file:
             json.dump(data, file, indent=4)
+
+    def exibir_popup(self, titulo, mensagem, tipo="info"):
+        if tipo == "info":
+            messagebox.showinfo(titulo, mensagem)
+        elif tipo == "warning":
+            messagebox.showwarning(titulo, mensagem)
+        elif tipo == "error":
+            messagebox.showerror(titulo, mensagem)
 
     def gerar_codigo_produto(self):
         if not self.tasks:
@@ -97,7 +106,7 @@ class AgendaApp:
         self.update_task_listbox()
 
     def add_task(self):
-        codigo = self.gerar_codigo_produto()  # Gera o código automaticamente
+        codigo = self.gerar_codigo_produto()
         date = self.date_entry.get()
         fornecedor = self.fornecedor_entry.get()
         categoria = self.categoria_combo.get()
@@ -115,9 +124,13 @@ class AgendaApp:
             
             self.tasks.append(formatted_task)
             self.save_data()
+
+            messagebox.showinfo(f"Sucesso", "Produto adicionado com sucesso!\nATENÇÃO!!\nAbra e feche a loja para vizualizar os produtos atualizados!")
             
             self.clear_entries()
             self.update_task_listbox()
+        else:
+            messagebox.showwarning("Erro", "Todos os campos devem ser preenchidos.")
 
     def remove_task(self):
         selected_task_index = self.task_listbox.curselection()
@@ -125,6 +138,12 @@ class AgendaApp:
             del self.tasks[selected_task_index[0]]
             self.save_data()
             self.update_task_listbox()
+
+            messagebox.showinfo(f"Sucesso", "seu produto foi removido!")
+            
+            self.clear_entries()
+            self.update_task_listbox()
+
 
     def alterar_task(self):
         selected_task_index = self.task_listbox.curselection()

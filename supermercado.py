@@ -4,6 +4,7 @@ import ttkbootstrap as ttk
 from PIL import Image, ImageTk
 from sabemuito import AgendaApp
 from tkcalendar import DateEntry
+from tkinter import messagebox
 
 produtos = []
 carrinho = []
@@ -16,7 +17,6 @@ def carregar_produtos():
             produtos = dados_produtos.get("produtos", [])
     except FileNotFoundError:
         produtos = []
-
 def placeholder_entry(entry, placeholder_text):
     def on_focusin(event):
         if entry.get() == placeholder_text:
@@ -33,6 +33,7 @@ def placeholder_entry(entry, placeholder_text):
     entry.bind('<FocusIn>', on_focusin)
     entry.bind('<FocusOut>', on_focusout)
 
+
 def add_loja():
     global frame_loja, canvas, scrollbar, entrada_filtro, entrada_categoria
 
@@ -40,7 +41,6 @@ def add_loja():
         frame_loja.place_forget()
     else:
         if frame_loja is None:
-            # Ajuste para um frame menor
             frame_loja = tk.Frame(app, width=300, height=80)
             canvas = tk.Canvas(frame_loja, width=300, height=80)
             scrollbar = ttk.Scrollbar(frame_loja, orient="vertical", command=canvas.yview)
@@ -85,6 +85,7 @@ def add_loja():
 
         frame_loja.place(x=400, y=120)
 
+
 def aplicar_filtro(event):
     filtro_nome = entrada_filtro.get().lower()
     filtro_categoria = entrada_categoria.get().lower()
@@ -108,8 +109,12 @@ def adicionar_ao_carrinho(codigo, nome, preco):
     with open('carrinho.json', 'w', encoding='utf-8') as arquivo:
         json.dump(carrinho, arquivo, indent=4)
 
-    # Atualiza a visualização do carrinho
     atualizar_carrinho()
+
+def salvar_carrinho():
+    with open('carrinho.json', 'w', encoding='utf-8') as arquivo:
+        json.dump(carrinho, arquivo, indent=4)
+nova_janela = None
 
 def atualizar_carrinho():
     global nova_janela, carrinho
@@ -117,21 +122,101 @@ def atualizar_carrinho():
         for widget in nova_janela.winfo_children():
             widget.destroy()
 
-        texto_total = ""
         total_preco = 0
-        for produto in carrinho:
+
+        for index, produto in enumerate(carrinho):
             codigo = produto["codigo"]
             nome = produto["nome"]
             preco = produto["preco"]
-            total_preco += preco 
-            texto_total += f"Código: {codigo}\nNome: {nome}\nPreço: R${preco:.2f}\n\n"
+            total_preco += preco
 
-        label = tk.Label(nova_janela, text=texto_total, padx=20, pady=20)
-        label.pack()
-        label2 = tk.Label(nova_janela, text=f"Total: R${total_preco:.2f}", padx=20, pady=20)
-        label2.pack()
+            frame_produto = tk.Frame(nova_janela)
+            frame_produto.grid(row=index, column=0, padx=10, pady=5, sticky="w")
+
+            label_produto = tk.Label(frame_produto, text=f"Código: {codigo} | Nome: {nome} | Preço: R${preco:.2f}")
+            label_produto.grid(row=0, column=0, padx=5)
+
+            btn_remover = ttk.Button(frame_produto, text="Remover", command=lambda idx=index: remover_produto(idx))
+            btn_remover.grid(row=0, column=1, padx=5)
+
+        label_total = tk.Label(nova_janela, text=f"Total: R${total_preco:.2f}")
+        label_total.grid(row=len(carrinho), column=0, pady=10)
+
         botaoc = ttk.Button(nova_janela, text="Finalizar Compra", command=finalizar_compra)
-        botaoc.pack()
+        botaoc.grid(row=len(carrinho) + 1, column=0, pady=10)
+        botaod = ttk.Button(nova_janela, text="Apagar carrinho", command=remover_produto_02)
+        botaod.grid(row=len(carrinho) + 2, column=0, pady=10)
+
+def remover_produto(index):
+    global label2, janela_confirmacao, index_produto_remover
+
+    janela_confirmacao = tk.Toplevel()
+    janela_confirmacao.title("Cuidado!")
+
+    janela_confirmacao.update_idletasks()
+
+    largura_tela = janela_confirmacao.winfo_screenwidth()
+    altura_tela = janela_confirmacao.winfo_screenheight()
+    largura_janela = janela_confirmacao.winfo_reqwidth()
+    altura_janela = janela_confirmacao.winfo_reqheight()
+
+    x = (largura_tela - largura_janela) // 2
+    y = (altura_tela - altura_janela) // 2
+
+    janela_confirmacao.geometry(f"{largura_janela}x{altura_janela}+{x}+{y}")
+
+    label = tk.Label(janela_confirmacao, text="Você tem certeza que deseja\nremover esse produto?")
+    label.place(x=20, y=20)
+    
+    label2 = tk.Button(janela_confirmacao, text="Sim", command=lambda: confirmar_remocao(index))
+    label2.place(x=100, y=70)
+    
+    label3 = tk.Button(janela_confirmacao, text="Cancelar", command=cancelar_remocao)
+    label3.place(x=130, y=70)
+
+def remover_produto_02():
+    global label2, janela_confirmacao, index_produto_remover
+
+    janela_confirmacao = tk.Toplevel()
+    janela_confirmacao.title("Cuidado!")
+
+    janela_confirmacao.update_idletasks()
+
+    largura_tela = janela_confirmacao.winfo_screenwidth()
+    altura_tela = janela_confirmacao.winfo_screenheight()
+    largura_janela = janela_confirmacao.winfo_reqwidth()
+    altura_janela = janela_confirmacao.winfo_reqheight()
+
+    x = (largura_tela - largura_janela) // 2
+    y = (altura_tela - altura_janela) // 2
+
+    janela_confirmacao.geometry(f"{largura_janela}x{altura_janela}+{x}+{y}")
+
+    label = tk.Label(janela_confirmacao, text="Você tem certeza que deseja\nremover esse produto?")
+    label.place(x=20, y=20)
+        
+    label2 = tk.Button(janela_confirmacao, text="Sim", command=lambda: confirmar_remocao_02())
+    label2.place(x=100, y=70)
+        
+    label3 = tk.Button(janela_confirmacao, text="Cancelar", command=cancelar_remocao)
+    label3.place(x=130, y=70)
+
+def confirmar_remocao(index):
+    global carrinho
+    del carrinho[index]
+    salvar_carrinho()
+    atualizar_carrinho()
+    janela_confirmacao.destroy()
+
+def confirmar_remocao_02():
+    global carrinho
+    carrinho.clear()
+    salvar_carrinho()
+    atualizar_carrinho()
+    janela_confirmacao.destroy()
+
+def cancelar_remocao():
+    janela_confirmacao.destroy()
 
 def ver_carrinho():
     global carrinho, nova_janela
@@ -181,6 +266,7 @@ def finalizar_compra():
 
 def recarregar_produtos():
     global produtos
+    messagebox.showinfo(f"Sucesso", "seus produtos foram para a sua loja!")
     carregar_produtos()
 
 def open_agenda_app():
@@ -219,11 +305,8 @@ botao1.place(x=20, y=30)
 botao1 = ttk.Button(app, text="Saída de\nprodutos")
 botao1.place(x=1000, y=30)
 
-recarregar_botao = ttk.Button(app, text="Recarregar Produtos", command=recarregar_produtos)
-recarregar_botao.place(x=90, y=30)
-
-botao_add_loja = ttk.Button(app, text="Adicionar à Loja", command=add_loja)
-botao_add_loja.place(x=200, y=30)
+botao_add_loja = ttk.Button(app, text="abrir Loja", command=add_loja)
+botao_add_loja.place(x=600, y=70)
 
 nova_janela = None
 frame_loja = None
