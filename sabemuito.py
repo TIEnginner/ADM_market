@@ -2,7 +2,7 @@ import json
 import os
 import tkinter as tk
 from tkinter import ttk
-from datetime import datetime
+from datetime import datetime, timedelta
 from tkinter import messagebox
 
 class AgendaApp:
@@ -14,6 +14,7 @@ class AgendaApp:
         self.tasks, self.categories = self.load_data()
         
         self.setup_produto()
+        self.check_proximos_vencimentos()
 
     def load_data(self):
         if not os.path.exists(self.filename):
@@ -115,17 +116,22 @@ class AgendaApp:
         quantidade = self.quantidade_entry.get()
         
         if date and fornecedor and categoria and task and valor and quantidade:
+            if not self.validate_date(date):
+                messagebox.showwarning("Erro", "A data deve ser pelo menos 3 dias à frente da data atual e não pode ser anterior a hoje.")
+                return
+            
             formatted_task = {
                 "codigo": codigo,
                 "nome": task,
                 "preco": float(valor),
-                "quantidade": int(quantidade)
+                "quantidade": int(quantidade),
+                "data_validade": date
             }
             
             self.tasks.append(formatted_task)
             self.save_data()
 
-            messagebox.showinfo(f"Sucesso", "Produto adicionado com sucesso!\nATENÇÃO!!\nAbra e feche a loja para vizualizar os produtos atualizados!")
+            messagebox.showinfo(f"Sucesso", "Produto adicionado com sucesso!\nATENÇÃO!!\nAbra e feche a loja para visualizar os produtos atualizados!")
             
             self.clear_entries()
             self.update_task_listbox()
@@ -139,11 +145,10 @@ class AgendaApp:
             self.save_data()
             self.update_task_listbox()
 
-            messagebox.showinfo(f"Sucesso", "seu produto foi removido!")
+            messagebox.showinfo(f"Sucesso", "Produto removido com sucesso!")
             
             self.clear_entries()
             self.update_task_listbox()
-
 
     def alterar_task(self):
         selected_task_index = self.task_listbox.curselection()
@@ -204,39 +209,58 @@ class AgendaApp:
 
     def on_date_entry_keyrelease(self, event):
         date_str = self.date_entry.get()
-        if not self.validate_date(date_str):
-            return
-        
-        formatted_date = self.format_date(date_str)
+
+        cleaned_str = ''.join(c for c in date_str if c.isdigit())
+        cleaned_str = cleaned_str[:8]  # Limit to 8 digits
+        formatted_date = self.format_date(cleaned_str)
         self.date_entry.delete(0, tk.END)
         self.date_entry.insert(0, formatted_date)
-
-    def validate_date(self, date_str):
-        try:
-            if len(date_str) > 10:
-                return False
-            datetime.strptime(date_str, '%d/%m/%Y')
-            year = int(date_str.split('/')[2])
-            if year < 2010:
-                return False
-            return True
-        except ValueError:
-            return False
-
+        
     def format_date(self, date_str):
-        date_str = ''.join(c for c in date_str if c.isdigit())
         if len(date_str) <= 2:
             return date_str
         elif len(date_str) <= 4:
             return f"{date_str[:2]}/{date_str[2:]}"
         elif len(date_str) <= 6:
             return f"{date_str[:2]}/{date_str[2:4]}/{date_str[4:]}"
-        return f"{date_str[:2]}/{date_str[2:4]}/{date_str[4:8]}"
+        else:
+            return f"{date_str[:2]}/{date_str[2:4]}/{date_str[4:8]}"
+    
+    def validate_date(self, date_str):
+        try:
+            date_obj = datetime.strptime(date_str, "%d/%m/%Y")
+        except ValueError:
+            return False
+        
+        today = datetime.today()
+        if date_obj < today:
+            return False
+        
+        if (date_obj - today).days < 3:
+            return False
+        
+        return True
+
+    def check_proximos_vencimentos(self):
+        for produto in self.tasks:
+            validade_str = produto.get("data_validade")
+            if validade_str:
+                try:
+                    validade_date = datetime.strptime(validade_str, "%d/%m/%Y")
+                    if validade_date <= datetime.now() + timedelta(days=30):
+                        self.exibir_popup(
+                            "Aviso de Vencimento Próximo",
+                            f"O produto {produto['nome']} está prestes a vencer!",
+                            "warning"
+                        )
+                except ValueError:
+                    print(f"Data de validade inválida para o produto {produto['nome']}")
 
 class CategoriaApp:
-    def __init__(self, root, main_app):
+    def __init__(self, root, app):
         self.root = root
-        self.main_app = main_app
+        self.app = app
+        self.root.title("Adicionar Categorias")
         
         self.setup_categoria()
 
@@ -245,20 +269,22 @@ class CategoriaApp:
         frame.grid(row=0, column=0, sticky="nsew")
         
         self.categoria_entry = ttk.Entry(frame)
-        self.add_categoria_btn = ttk.Button(frame, text="Adicionar", command=self.add_categoria)
-        self.cancelar_btn = ttk.Button(frame, text="Cancelar", command=self.root.destroy)
+        self.add_categoria_btn = ttk.Button(frame, text="Adicionar Categoria", command=self.add_categoria)
         
-        ttk.Label(frame, text="Nova Categoria").grid(row=0, column=0, sticky="w")
+        ttk.Label(frame, text="Categoria").grid(row=0, column=0, sticky="w")
         self.categoria_entry.grid(row=0, column=1, padx=5, pady=5)
-        self.add_categoria_btn.grid(row=1, column=0, padx=5, pady=5)
-        self.cancelar_btn.grid(row=1, column=1, padx=5, pady=5)
-
+        self.add_categoria_btn.grid(row=1, column=0, columnspan=2, pady=5)
+        
     def add_categoria(self):
         categoria = self.categoria_entry.get()
         if categoria:
-            self.main_app.categories.append(categoria)
-            self.main_app.save_data()
-            self.root.destroy()
+            if categoria not in self.app.categories:
+                self.app.categories.append(categoria)
+                self.app.save_data()
+                self.app.categoria_combo.config(values=self.app.categories)
+                self.categoria_entry.delete(0, tk.END)
+            else:
+                self.app.exibir_popup("Erro", "Categoria já existe!", "warning")
 
 if __name__ == "__main__":
     root = tk.Tk()

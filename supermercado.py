@@ -22,6 +22,59 @@ scrollbar_compras = None
 nova_janela = None
 nova_janela_agenda = None
 
+
+global app
+app = tk.Tk()
+app.title("Login")
+app.geometry("300x200")
+
+label_usuario = tk.Label(app, text="Usuário:")
+label_usuario.pack(pady=5)
+entry_usuario = tk.Entry(app)
+entry_usuario.pack(pady=5)
+
+label_senha = tk.Label(app, text="Senha:")
+label_senha.pack(pady=5)
+entry_senha = tk.Entry(app, show="*")
+entry_senha.pack(pady=5)
+
+botao_login = tk.Button(app, text="Login", command=lambda: validar_login(entry_usuario.get(), entry_senha.get()))
+botao_login.pack(pady=20)
+
+app.mainloop()
+
+def validar_login(usuario, senha):
+    sucesso, mensagem = login("funcionario", usuario, senha)
+    if sucesso:
+        app.destroy()
+        iniciar_aplicativo()
+    else:
+        messagebox.showerror("Erro", mensagem)
+
+def iniciar_aplicativo():
+    global app
+    app = tk.Tk()
+    app.title("Aplicativo de Supermercado")
+    app.geometry("1200x800")
+
+    app.mainloop()
+
+def login(user_type_client, name, password):
+    try:
+        with open('usuarios.json', 'r') as file:
+            users = json.load(file)
+        
+        for user in users:
+            if user['user_type'] == user_type_client and user['name'] == name and user['password'] == password:
+                return True, f"Bem-vindo, {user['name']}!"
+        
+        return False, "Usuário ou senha inválidos."
+    
+    except FileNotFoundError:
+        return False, "Arquivo de usuários não encontrado."
+    except json.JSONDecodeError:
+        return False, "Erro ao ler o arquivo de usuários."
+
 def carregar_produtos():
     global produtos
     try:
@@ -146,35 +199,81 @@ def carregar_dados():
     
     return contador
 
+frame_compras = None
+notebook_compras = None
+num_abas = 0
+
+frame_compras = None
+notebook_compras = None
+num_abas = 0
+
 def mostrar_compras():
-    global frame_compras, canvas_compras, scrollbar_compras
+    global frame_compras, notebook_compras, num_abas
 
     if frame_compras is not None and frame_compras.winfo_ismapped():
-        frame_compras.pack_forget()
+        frame_compras.place_forget()
     else:
         if frame_compras is None:
-            frame_compras = tk.Frame(app)
-            canvas_compras = tk.Canvas(frame_compras, width=300, height=300)
-            scrollbar_compras = ttk.Scrollbar(frame_compras, orient="vertical", command=canvas_compras.yview)
-            
-            scrollbar_compras.pack(side="right", fill="y")
-            canvas_compras.pack(side="left", fill="both", expand=True)
-            canvas_compras.create_window((0, 0), window=frame_compras, anchor="nw")
-            canvas_compras.configure(yscrollcommand=scrollbar_compras.set)
-
-            frame_compras.bind("<Configure>", lambda e: canvas_compras.configure(scrollregion=canvas_compras.bbox("all")))
-
-            frame_compras.place(x=300, y=760)
+            notebook_compras = ttk.Notebook(app)
+            notebook_compras.place(x=1320, y=80, width=400, height=400)
+            num_abas = 0
+            criar_nova_aba()
 
         for widget in frame_compras.winfo_children():
             widget.destroy()
 
-        contador = carregar_dados()
+        produtos_contados = contar_produtos_saida()
+        print(f"Produtos contados: {produtos_contados}")
 
-        for codigo, quantidade in contador.items():
+        produtos_ordenados = sorted(produtos_contados.items(), key=lambda x: x[1], reverse=True)
+
+        contador_produtos = 0
+        for codigo, quantidade in produtos_ordenados:
+            if contador_produtos == 10:
+                criar_nova_aba()
+                contador_produtos = 0
+
             label = tk.Label(frame_compras, text=f"Produto {codigo}: {quantidade} vezes")
             label.pack(pady=5)
-            
+            contador_produtos += 1
+
+        btn_limpar = tk.Button(frame_compras, text="Limpar Lista", command=limpar_lista)
+        btn_limpar.pack(pady=10)
+
+        frame_compras.place(x=50, y=50, width=300, height=200)
+
+def contar_produtos_saida():
+    try:
+        with open('saida.json', 'r') as arquivo_saida:
+            conteudo = arquivo_saida.read().strip()
+            if conteudo:
+                saida = json.loads(conteudo)
+                contador = {}
+                for item in saida:
+                    codigo = item.get('codigo')
+                    if codigo:
+                        if codigo in contador:
+                            contador[codigo] += 1
+                        else:
+                            contador[codigo] = 1
+                return contador
+            else:
+                return {}
+    except FileNotFoundError:
+        return {}
+    except json.JSONDecodeError:
+        return {}
+
+def criar_nova_aba():
+    global frame_compras, num_abas
+    num_abas += 1
+    frame_compras = tk.Frame(notebook_compras)
+    notebook_compras.add(frame_compras, text=f"Aba {num_abas}")
+
+def limpar_lista():
+    if frame_compras is not None:
+        for widget in frame_compras.winfo_children():
+            widget.destroy()
 def atualizar_carrinho():
     global nova_janela, carrinho
     if nova_janela is not None and nova_janela.winfo_ismapped():
@@ -246,7 +345,7 @@ def remover_produto_02():
     largura_janela = janela_confirmacao.winfo_reqwidth()
     altura_janela = janela_confirmacao.winfo_reqheight()
 
-    x = (largura_tela - largura_janela) // 10
+    x = (largura_tela - largura_janela) // 2
     y = (altura_tela - altura_janela) // 2
 
     janela_confirmacao.geometry(f"{largura_janela}x{altura_janela}+{x}+{y}")
@@ -412,7 +511,7 @@ botao1 = ttk.Button(app, text="Estoque", command= lambda: open_agenda_app())
 botao1.place(x=20, y=30)
 
 botao1 = ttk.Button(app, text="Saída de\nprodutos", command=mostrar_compras)
-botao1.place(x=250, y=700)
+botao1.place(x=1320, y=30)
 
 botao_add_loja = ttk.Button(app, text="abrir Loja", command=add_loja)
 botao_add_loja.place(x=600, y=70)
