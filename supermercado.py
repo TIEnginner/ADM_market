@@ -5,6 +5,8 @@ from PIL import Image, ImageTk
 from sabemuito import AgendaApp
 from tkcalendar import DateEntry
 from tkinter import messagebox
+import unicodedata
+
 
 produtos = []
 carrinho = []
@@ -22,59 +24,6 @@ scrollbar_compras = None
 nova_janela = None
 nova_janela_agenda = None
 
-
-global app
-app = tk.Tk()
-app.title("Login")
-app.geometry("300x200")
-
-label_usuario = tk.Label(app, text="Usuário:")
-label_usuario.pack(pady=5)
-entry_usuario = tk.Entry(app)
-entry_usuario.pack(pady=5)
-
-label_senha = tk.Label(app, text="Senha:")
-label_senha.pack(pady=5)
-entry_senha = tk.Entry(app, show="*")
-entry_senha.pack(pady=5)
-
-botao_login = tk.Button(app, text="Login", command=lambda: validar_login(entry_usuario.get(), entry_senha.get()))
-botao_login.pack(pady=20)
-
-app.mainloop()
-
-def validar_login(usuario, senha):
-    sucesso, mensagem = login("funcionario", usuario, senha)
-    if sucesso:
-        app.destroy()
-        iniciar_aplicativo()
-    else:
-        messagebox.showerror("Erro", mensagem)
-
-def iniciar_aplicativo():
-    global app
-    app = tk.Tk()
-    app.title("Aplicativo de Supermercado")
-    app.geometry("1200x800")
-
-    app.mainloop()
-
-def login(user_type_client, name, password):
-    try:
-        with open('usuarios.json', 'r') as file:
-            users = json.load(file)
-        
-        for user in users:
-            if user['user_type'] == user_type_client and user['name'] == name and user['password'] == password:
-                return True, f"Bem-vindo, {user['name']}!"
-        
-        return False, "Usuário ou senha inválidos."
-    
-    except FileNotFoundError:
-        return False, "Arquivo de usuários não encontrado."
-    except json.JSONDecodeError:
-        return False, "Erro ao ler o arquivo de usuários."
-
 def carregar_produtos():
     global produtos
     try:
@@ -83,6 +32,7 @@ def carregar_produtos():
             produtos = dados_produtos.get("produtos", [])
     except FileNotFoundError:
         produtos = []
+
 def placeholder_entry(entry, placeholder_text):
     def on_focusin(event):
         if entry.get() == placeholder_text:
@@ -99,7 +49,6 @@ def placeholder_entry(entry, placeholder_text):
     entry.bind('<FocusIn>', on_focusin)
     entry.bind('<FocusOut>', on_focusout)
 
-
 def add_loja():
     global frame_loja, canvas_loja, scrollbar_loja, entrada_filtro, entrada_categoria
 
@@ -107,7 +56,7 @@ def add_loja():
         frame_loja.place_forget()
     else:
         if frame_loja is None:
-            # Cria um frame para a loja e um canvas dentro dele
+
             frame_loja = tk.Frame(app, width=300, height=300)
             canvas_loja = tk.Canvas(frame_loja, width=300, height=300)
             scrollbar_loja = ttk.Scrollbar(frame_loja, orient="vertical", command=canvas_loja.yview)
@@ -119,11 +68,6 @@ def add_loja():
 
             frame_loja.bind("<Configure>", lambda e: canvas_loja.configure(scrollregion=canvas_loja.bbox("all")))
 
-            entrada_filtro = tk.Entry(frame_loja)
-            placeholder_entry(entrada_filtro, "Filtrar por nome")
-            entrada_filtro.pack(pady=5)
-            entrada_filtro.bind("<KeyRelease>", aplicar_filtro)
-
             entrada_categoria = tk.Entry(frame_loja)
             placeholder_entry(entrada_categoria, "Filtrar por categoria")
             entrada_categoria.pack(pady=5)
@@ -134,35 +78,44 @@ def add_loja():
                 widget.destroy()
 
         carregar_produtos()
-
-        if produtos:
-            for produto in produtos:
-                preco = produto.get('preco', 'N/A')
-                texto_preco = f"R${preco:.2f}" if preco != 'N/A' else 'N/A'
-                
-                nome = produto.get('nome', 'N/A')
-                codigo = produto.get('codigo', 'N/A')
-                texto = f"Nome: {nome}\nCódigo: {codigo}\nPreço: {texto_preco}"
-                botao = ttk.Button(frame_loja, text=texto, style="TButton", command=lambda p=produto: adicionar_ao_carrinho(p['codigo'], p['nome'], p['preco']))
-                botao.pack(pady=5)
-        else:
-            label = ttk.Label(frame_loja, text="Nenhum produto encontrado.")
-            label.pack(pady=20)
+        exibir_produtos()
 
         frame_loja.place(x=400, y=120)
 
+def normalize_string(s):
+    s = ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+    s = s.lower().replace(' ', '')
+    return s
+
 def aplicar_filtro(event):
-    filtro_nome = entrada_filtro.get().lower()
-    filtro_categoria = entrada_categoria.get().lower()
+    filtro_categoria = normalize_string(entrada_categoria.get())
+    print(f"Filtro aplicado: {filtro_categoria}")
 
     for widget in frame_loja.winfo_children():
         if isinstance(widget, ttk.Button):
-            texto = widget.cget("text").lower()
+            texto = normalize_string(widget.cget("text"))
+            print(f"Texto do botão: {texto}")
 
-            if (filtro_nome in texto or filtro_nome == '') and (filtro_categoria in texto or filtro_categoria == ''):
+            if filtro_categoria in texto or filtro_categoria == '':
                 widget.pack(pady=5)
             else:
                 widget.pack_forget()
+                
+def exibir_produtos():
+    if produtos:
+        for produto in produtos:
+            preco = produto.get('preco', 'N/A')
+            texto_preco = f"R${preco:.2f}" if preco != 'N/A' else 'N/A'
+            
+            nome = produto.get('nome', 'N/A')
+            codigo = produto.get('codigo', 'N/A')
+            categoria = produto.get('categoria', 'N/A')
+            texto = f"Nome: {nome}\nCódigo: {codigo}\nPreço: {texto_preco}\nCategoria: {categoria}"
+            botao = ttk.Button(frame_loja, text=texto, style="TButton", command=lambda p=produto: adicionar_ao_carrinho(p['codigo'], p['nome'], p['preco']))
+            botao.pack(pady=5)
+    else:
+        label = ttk.Label(frame_loja, text="Nenhum produto encontrado.")
+        label.pack(pady=20)
 
 def adicionar_ao_carrinho(codigo, nome, preco):
     global carrinho
@@ -421,15 +374,18 @@ def finalizar_carrinho():
 
 def finalizar_compra():
     global produtos, carrinho
-    messagebox.showinfo("Sucesso", "Sua compra foi finalizada com sucesso!\nObrigado por comprar no mercado sabe muito.")
     ver_carrinho()
-    
+
     try:
         with open('saida.json', 'r', encoding='utf-8') as arquivo_saida:
-            saida = json.load(arquivo_saida)
+            try:
+                saida = json.load(arquivo_saida)
+            except json.JSONDecodeError:
+                saida = []
     except FileNotFoundError:
         saida = []
 
+    print("Carrinho atual:", carrinho)
     saida.extend(carrinho)
 
     with open('saida.json', 'w', encoding='utf-8') as arquivo_saida:
@@ -441,16 +397,19 @@ def finalizar_compra():
             if produto['codigo'] == codigo_produto:
                 produto['quantidade'] -= 1
                 break
+
     with open('produto.json', 'w', encoding='utf-8') as arquivo_produtos:
         json.dump({"produtos": produtos}, arquivo_produtos, indent=4)
+
+    print("Carrinho após limpeza:", carrinho)
+    carrinho.clear()
+
     with open('carrinho.json', 'w', encoding='utf-8') as arquivo_carrinho:
-        json.dump([], arquivo_carrinho, indent=4)
+        json.dump(carrinho, arquivo_carrinho, indent=4)
 
-    carrinho = []
     atualizar_carrinho()
-    
-    messagebox
 
+    messagebox.showinfo("Finalização", "Compra finalizada com sucesso.")
 def open_agenda_app():
     global nova_janela_agenda
 
@@ -498,7 +457,7 @@ top_frame.place(x=600, y=0)
 style = ttk.Style()
 style.configure("TFrame", background="#4D4D4D")
 
-label = ttk.Label(top_frame, text="Supermercado sabe muito", font=('Helvetica', 14, 'bold'), foreground="white", background="#4D4D4D")
+label = ttk.Label(top_frame, text="Supermercado inteligente", font=('Helvetica', 14, 'bold'), foreground="white", background="#4D4D4D")
 
 label1 = ttk.Label(app, text= "Lista de compra:")
 label1.place(x=600, y= 50)
